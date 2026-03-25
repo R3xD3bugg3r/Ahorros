@@ -21,11 +21,43 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await request.json()
-    const { amount, type, category_id, description, date } = body
+    const { amount, type, category_name, description, date } = body
+
+    // 1. Get user profile for household_id
+    const { data: profile } = await supabase.from('users').select('household_id').eq('id', user.id).single()
+    const household_id = profile?.household_id
+
+    // 2. Resolve category_name to category_id
+    let categoryId = null
+    if (category_name) {
+        let { data: cat } = await supabase
+            .from('categories')
+            .select('id')
+            .eq('name', category_name)
+            .eq('type', type)
+            .limit(1)
+            .single()
+
+        if (!cat && household_id) {
+            const { data: newCat } = await supabase
+                .from('categories')
+                .insert({ name: category_name, type, is_custom: true, household_id: household_id })
+                .select('id')
+                .single()
+            if (newCat) cat = newCat
+        }
+        if (cat) categoryId = cat.id
+    }
 
     const { data, error } = await supabase
         .from('transactions')
-        .update({ amount, type, category_id, description, date })
+        .update({ 
+            amount: amount ? parseFloat(amount) : undefined, 
+            type, 
+            category_id: categoryId, 
+            description, 
+            date 
+        })
         .eq('id', params.id)
         .select('*, categories(*)')
         .single()

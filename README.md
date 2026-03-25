@@ -1,4 +1,4 @@
-# FinanzasEnPareja 💑
+# Santa Clara 2026 💑
 
 App web progresiva (PWA) para control financiero compartido de pareja. Detecta "gastos hormiga", muestra el balance del hogar en tiempo real y funciona offline.
 

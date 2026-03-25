@@ -34,28 +34,66 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { data: profile } = await supabase
-        .from('users').select('household_id').eq('id', user.id).single()
+    let { data: profile } = await supabase
+        .from('users').select('household_id, display_name').eq('id', user.id).single()
 
-    if (!profile?.household_id) {
-        return NextResponse.json({ error: 'No household found. Complete your onboarding.' }, { status: 400 })
+    let household_id = profile?.household_id
+
+    // Auto-recovery mechanism: if user reached here without a household, create one automatically
+    if (!household_id) {
+        const userName = profile?.display_name || user.email?.split('@')[0] || 'Usuario'
+        const { data: newHh } = await supabase.from('households').insert({ name: `Hogar de ${userName}` }).select('id').single()
+
+        if (newHh) {
+            household_id = newHh.id
+            if (profile) {
+                await supabase.from('users').update({ household_id }).eq('id', user.id)
+            } else {
+                if (user.email) {
+                    await supabase.from('users').insert({ id: user.id, email: user.email, display_name: userName, household_id })
+                }
+            }
+        } else {
+            return NextResponse.json({ error: 'No se pudo generar el hogar automáticamente.' }, { status: 500 })
+        }
     }
 
     const body = await request.json()
-    const { amount, type, category_id, description, date } = body
+    const { amount, type, category_name, description, date } = body
 
     if (!amount || !type) {
         return NextResponse.json({ error: 'amount and type are required.' }, { status: 400 })
     }
 
+    let categoryId = null
+    if (category_name) {
+        let { data: cat } = await supabase
+            .from('categories')
+            .select('id')
+            .eq('name', category_name)
+            .eq('type', type)
+            .limit(1)
+            .single()
+
+        if (!cat) {
+            const { data: newCat } = await supabase
+                .from('categories')
+                .insert({ name: category_name, type, is_custom: true, household_id: household_id })
+                .select('id')
+                .single()
+            if (newCat) cat = newCat
+        }
+        if (cat) categoryId = cat.id
+    }
+
     const { data, error } = await supabase
         .from('transactions')
         .insert({
-            household_id: profile.household_id,
+            household_id: household_id,
             user_id: user.id,
             amount: parseFloat(amount),
             type,
-            category_id: category_id || null,
+            category_id: categoryId,
             description: description || null,
             date: date || new Date().toISOString(),
         })

@@ -1,6 +1,6 @@
 {
-    "name": "FinanzasEnPareja",
-    "short_name": "FinanzasEnPareja",
+    "name": "Santa Clara 2026",
+    "short_name": "Santa Clara 2026",
     "description": "Control financiero compartido para parejas",
     "start_url": "/dashboard",
     "display": "standalone",

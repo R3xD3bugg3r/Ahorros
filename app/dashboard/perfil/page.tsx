@@ -11,5 +11,5 @@ export default async function PerfilPage() {
         .eq('id', user!.id)
         .single()
 
-    return <ProfileClient profile={profile} />
+    return <ProfileClient profile={profile} user={user} />
 }

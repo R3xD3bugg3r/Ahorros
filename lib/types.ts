@@ -1,4 +1,4 @@
-// Tipos base para FinanzasEnPareja
+// Tipos base para Santa Clara 2026
 
 export type TransactionType = 'income' | 'expense'
 

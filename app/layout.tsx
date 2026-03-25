@@ -6,13 +6,13 @@ import ServiceWorkerRegister from '@/components/ServiceWorkerRegister'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'FinanzasEnPareja',
+  title: 'Santa Clara 2026',
   description: 'Control financiero compartido para tu pareja',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'FinanzasEnPareja',
+    title: 'Santa Clara 2026',
   },
 }
 

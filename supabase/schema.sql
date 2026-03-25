@@ -1,4 +1,4 @@
--- Supabase Schema para FinanzasEnPareja
+-- Supabase Schema para Santa Clara 2026
 
 -- 1. Tabla: households (Hogares / Parejas)
 CREATE TABLE IF NOT EXISTS public.households (
@@ -63,12 +63,16 @@ CREATE POLICY "Users can view their own household" ON public.households
   FOR SELECT USING (id = public.get_user_household_id());
 CREATE POLICY "Users can update their own household" ON public.households
   FOR UPDATE USING (id = public.get_user_household_id());
+CREATE POLICY "Users can insert households" ON public.households
+  FOR INSERT WITH CHECK (true);
 
 -- Policies for users
 CREATE POLICY "Users can view profiles in same household" ON public.users
   FOR SELECT USING (household_id = public.get_user_household_id() OR id = auth.uid());
 CREATE POLICY "Users can update own profile" ON public.users
   FOR UPDATE USING (id = auth.uid());
+CREATE POLICY "Users can insert own profile" ON public.users
+  FOR INSERT WITH CHECK (id = auth.uid());
 
 -- Policies for categories
 CREATE POLICY "Users can read categories of their household or global/system categories" ON public.categories

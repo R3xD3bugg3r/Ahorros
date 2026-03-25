@@ -18,6 +18,7 @@ export default function TransactionModal() {
     const [description, setDescription] = useState('')
     const [category, setCategory] = useState('')
     const [customCategory, setCustomCategory] = useState('')
+    const [date, setDate] = useState(new Date().toISOString().split('T')[0])
     const [loading, setLoading] = useState(false)
     const router = useRouter()
 
@@ -28,7 +29,7 @@ export default function TransactionModal() {
         const res = await fetch('/api/transactions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount: parseFloat(amount), type, description, category_id: null }),
+            body: JSON.stringify({ amount: parseFloat(amount), type, description, category_name: categoryName, date }),
         })
         setLoading(false)
         if (res.ok) {
@@ -37,7 +38,11 @@ export default function TransactionModal() {
             setDescription('')
             setCategory('')
             setCustomCategory('')
+            setDate(new Date().toISOString().split('T')[0])
             router.refresh()
+        } else {
+            const err = await res.json()
+            alert('Error al guardar: ' + (err.error || 'Ocurrió un problema'))
         }
     }
 
@@ -85,6 +90,12 @@ export default function TransactionModal() {
                                     <Input id="amount" type="number" min="0" step="0.01" placeholder="0,00"
                                         className="pl-7 text-lg font-bold" value={amount} onChange={e => setAmount(e.target.value)} required />
                                 </div>
+                            </div>
+
+                            {/* Date */}
+                            <div className="space-y-1.5">
+                                <Label htmlFor="date" className="text-xs">Fecha</Label>
+                                <Input id="date" type="date" value={date} onChange={e => setDate(e.target.value)} required />
                             </div>
 
                             {/* Category */}
