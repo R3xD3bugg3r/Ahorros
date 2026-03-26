@@ -1,6 +1,6 @@
 // Tipos base para Santa Clara 2026
 
-export type TransactionType = 'income' | 'expense'
+export type TransactionType = 'income' | 'expense' | 'investment' | 'savings'
 
 export interface Household {
     id: string
@@ -23,6 +23,7 @@ export interface Category {
     type: TransactionType
     icon: string | null
     is_custom: boolean
+    default_description?: string | null
     created_at: string
 }
 

@@ -7,9 +7,9 @@ export default async function HistorialPage() {
 
     const { data: transactions } = await supabase
         .from('transactions')
-        .select('*, categories(name, type), users(display_name)')
+        .select('*, categories(name, type, icon, default_description), users(display_name)')
         .order('date', { ascending: false })
-        .limit(100)
+        .limit(250)
 
     return <HistorialClient transactions={transactions || []} currentUserId={user!.id} />
 }

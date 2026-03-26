@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { LogOut, Copy, CheckCircle, Home, Users, Loader2 } from 'lucide-react'
+import { LogOut, Copy, CheckCircle, Home, Users, Loader2, List } from 'lucide-react'
 import { useState } from 'react'
 
 export default function ProfileClient({ profile, user }: { profile: any; user: any }) {
@@ -155,6 +155,17 @@ export default function ProfileClient({ profile, user }: { profile: any; user: a
                         </div>
                     </div>
                 )}
+            </div>
+
+            {/* Settings */}
+            <div className="glass rounded-2xl p-5 space-y-3">
+                <h2 className="text-lg font-bold">Configuración</h2>
+                <Button variant="outline" className="w-full justify-start gap-3 bg-white/5 border-white/10 h-12" onClick={() => router.push('/dashboard/categorias')}>
+                    <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center text-primary">
+                        <List size={18} />
+                    </div>
+                    <span>Gestionar Categorías</span>
+                </Button>
             </div>
 
             {/* Sign out */}
