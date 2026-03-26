@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { 
     PieChart, Pie, Cell, Tooltip, ResponsiveContainer, 
     BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList 
@@ -13,7 +13,7 @@ import TransactionEditModal from '@/components/transactions/TransactionEditModal
 import { Transaction, UserProfile } from '@/lib/types'
 
 const ARS = (n: number) => n.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 })
-const USD = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+const USD = (n: number) => `U$S ${n.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`
 const ARS_SHORT = (n: number) => {
     if (n >= 1000000) return `$${(n / 1000000).toFixed(1)}MM`
     if (n >= 1000) return `$${(n / 1000).toFixed(0)}k`
@@ -43,6 +43,12 @@ export default function DashboardClient({ user, profile, initialTransactions }: 
     const [filterUser, setFilterUser] = useState<string | null>(null)
     const [editingTx, setEditingTx] = useState<any>(null)
     const [showHistory, setShowHistory] = useState(false)
+    const [viewMode, setViewMode] = useState<'mine' | 'all'>('mine')
+    
+    // Sync state when props change (fixes delay on manual refresh)
+    useEffect(() => {
+        setTransactions(initialTransactions)
+    }, [initialTransactions])
 
     // Month Navigation
     const changeMonth = (delta: number) => {
@@ -66,10 +72,14 @@ export default function DashboardClient({ user, profile, initialTransactions }: 
     const displayName = getRealName(profile?.display_name || user?.email?.split('@')[0] || 'Usuario')
     const initials = displayName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()
 
-    // Filter transactions by current month
+    // Filter transactions by current month AND viewMode
     const monthTransactions = useMemo(() => {
-        return transactions.filter(t => (t.date || t.created_at).startsWith(currentMonth))
-    }, [transactions, currentMonth])
+        return transactions.filter(t => {
+            const isMonth = (t.date || t.created_at).startsWith(currentMonth)
+            const isUser = viewMode === 'all' || t.user_id === user.id
+            return isMonth && isUser
+        })
+    }, [transactions, currentMonth, viewMode, user.id])
 
     // Calculations
     const stats = useMemo(() => {
@@ -89,19 +99,6 @@ export default function DashboardClient({ user, profile, initialTransactions }: 
         }
     }, [monthTransactions])
 
-    // Yearly Stats
-    const yearlyStats = useMemo(() => {
-        const currentYear = currentMonth.substring(0, 4)
-        const yearTxs = transactions.filter(t => (t.date || t.created_at).startsWith(currentYear))
-        
-        const expense = yearTxs.filter(t => t.type === 'expense' && (t.currency === 'ARS' || !t.currency)).reduce((s, t) => s + t.amount, 0)
-        const savings = yearTxs.filter(t => (t.type === 'savings' || t.type === 'investment') && (t.currency === 'ARS' || !t.currency)).reduce((s, t) => s + t.amount, 0)
-        
-        const expenseUSD = yearTxs.filter(t => t.type === 'expense' && t.currency === 'USD').reduce((s, t) => s + t.amount, 0)
-        const savingsUSD = yearTxs.filter(t => (t.type === 'savings' || t.type === 'investment') && t.currency === 'USD').reduce((s, t) => s + t.amount, 0)
-        
-        return { expense, savings, expenseUSD, savingsUSD }
-    }, [transactions, currentMonth])
 
     // Category Summary (Expenses)
     const categorySummary = useMemo(() => {
@@ -161,14 +158,33 @@ export default function DashboardClient({ user, profile, initialTransactions }: 
 
         transactions.forEach(t => {
             const key = (t.date || t.created_at).substring(0, 7)
-            if (data[key]) {
+            const isUser = viewMode === 'all' || t.user_id === user.id
+            if (data[key] && isUser) {
                 if (t.type === 'income') data[key].income += t.amount
                 if (t.type === 'expense') data[key].expense += t.amount
                 if (t.type === 'investment' || t.type === 'savings') data[key].investment += t.amount
             }
         })
         return last6Months.map(k => data[k])
-    }, [transactions])
+    }, [transactions, viewMode, user.id])
+
+    // Yearly Stats (Filtered by viewMode)
+    const yearlyStats = useMemo(() => {
+        const currentYear = currentMonth.substring(0, 4)
+        const yearTxs = transactions.filter(t => {
+            const isYear = (t.date || t.created_at).startsWith(currentYear)
+            const isUser = viewMode === 'all' || t.user_id === user.id
+            return isYear && isUser
+        })
+        
+        const expense = yearTxs.filter(t => t.type === 'expense' && (t.currency === 'ARS' || !t.currency)).reduce((s, t) => s + t.amount, 0)
+        const savings = yearTxs.filter(t => (t.type === 'savings' || t.type === 'investment') && (t.currency === 'ARS' || !t.currency)).reduce((s, t) => s + t.amount, 0)
+        
+        const expenseUSD = yearTxs.filter(t => t.type === 'expense' && t.currency === 'USD').reduce((s, t) => s + t.amount, 0)
+        const savingsUSD = yearTxs.filter(t => (t.type === 'savings' || t.type === 'investment') && t.currency === 'USD').reduce((s, t) => s + t.amount, 0)
+        
+        return { expense, savings, expenseUSD, savingsUSD }
+    }, [transactions, currentMonth, viewMode, user.id])
 
     const greeting = () => {
         const h = new Date().getHours()
@@ -190,7 +206,21 @@ export default function DashboardClient({ user, profile, initialTransactions }: 
                 </div>
             </div>
 
-            {/* Month Selector */}
+            {/* View Mode Toggle */}
+            <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10">
+                <button 
+                    onClick={() => setViewMode('mine')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all ${viewMode === 'mine' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                    <Wallet size={14} /> Mi Finanza
+                </button>
+                <button 
+                    onClick={() => setViewMode('all')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all ${viewMode === 'all' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                    <TrendingUp size={14} /> Consolidado
+                </button>
+            </div>
             <div className="flex items-center justify-between glass rounded-xl px-4 py-2 border border-white/5">
                 <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-white/10 rounded-full transition-colors"><ChevronLeft size={20} /></button>
                 <div className="text-center">
