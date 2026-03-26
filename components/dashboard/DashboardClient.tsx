@@ -237,7 +237,7 @@ export default function DashboardClient({ user, profile, initialTransactions }: 
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <Landmark size={14} className="text-violet-400" />
-                                <span className="text-xs text-slate-400 font-medium font-mono uppercase">Reservas Mensales</span>
+                                <span className="text-xs text-slate-400 font-medium font-mono uppercase tracking-tighter">Reservas del Periodo</span>
                             </div>
                             <div className="flex gap-2">
                                 {(stats.investment + stats.savings > 0) && (
@@ -256,11 +256,10 @@ export default function DashboardClient({ user, profile, initialTransactions }: 
                 )}
             </div>
 
-            {/* Yearly Accumulation Section */}
-            <div className="glass rounded-2xl p-4 border border-amber-500/10 bg-amber-500/5">
+            <div className="glass rounded-2xl p-4 border border-zinc-500/10 bg-gradient-to-br from-amber-500/5 to-transparent">
                 <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xs font-bold text-amber-500/80 uppercase tracking-widest flex items-center gap-2">
-                        <TrendingUp size={14} /> Acumulado Anual {y}
+                    <h3 className="text-[10px] font-black text-amber-500/70 uppercase tracking-[0.2em] flex items-center gap-2">
+                        <TrendingUp size={12} /> Acumulado Anual {y}
                     </h3>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
