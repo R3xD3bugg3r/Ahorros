@@ -16,6 +16,7 @@ export default function TransactionModal() {
     const [category, setCategory] = useState('')
     const [customCategory, setCustomCategory] = useState('')
     const [date, setDate] = useState(new Date().toISOString().split('T')[0])
+    const [currency, setCurrency] = useState<'ARS' | 'USD'>('ARS')
     const [loading, setLoading] = useState(false)
     const [allCategories, setAllCategories] = useState<Category[]>([])
     const router = useRouter()
@@ -47,21 +48,27 @@ export default function TransactionModal() {
                 type,
                 description,
                 category_name: categoryName,
-                date
+                date,
+                currency
             })
             
             setOpen(false)
-            setAmount('')
-            setDescription('')
-            setCategory('')
-            setCustomCategory('')
-            setDate(new Date().toISOString().split('T')[0])
+            resetForm()
             router.refresh()
         } catch (err: any) {
             alert('Error al guardar: ' + (err.message || 'Ocurrió un problema'))
         } finally {
             setLoading(false)
         }
+    }
+
+    function resetForm() {
+        setAmount('')
+        setDescription('')
+        setCategory('')
+        setCustomCategory('')
+        setDate(new Date().toISOString().split('T')[0])
+        setCurrency('ARS')
     }
 
     return (
@@ -93,7 +100,7 @@ export default function TransactionModal() {
                                 { v: 'investment', l: 'Inversión', i: Landmark, c: 'text-violet-400', bg: 'bg-violet-500/10' },
                                 { v: 'savings', l: 'Ahorro', i: PiggyBank, c: 'text-blue-400', bg: 'bg-blue-500/10' },
                             ] as const).map(t => (
-                                <button key={t.v} onClick={() => { setType(t.v); setCategory(''); }}
+                                <button key={t.v} type="button" onClick={() => { setType(t.v); setCategory(''); }}
                                     className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all border ${type === t.v
                                         ? `${t.bg} border-${t.c.replace('text-', '')}/50 ${t.c}`
                                         : 'border-white/5 text-slate-500'}`}
@@ -105,13 +112,31 @@ export default function TransactionModal() {
                         </div>
 
                         <form onSubmit={handleSubmit} className="space-y-4">
-                            {/* Amount */}
-                            <div className="space-y-1.5">
-                                <Label htmlFor="amount" className="text-xs text-slate-400">Monto (ARS)</Label>
-                                <div className="relative">
-                                    <span className="absolute left-4 top-2.5 text-slate-500 font-bold">$</span>
-                                    <Input id="amount" type="number" min="0" step="0.01" placeholder="0,00"
-                                        className="pl-8 text-xl font-black bg-white/5 border-white/10 h-12" value={amount} onChange={e => setAmount(e.target.value)} required />
+                            <div className="flex gap-4">
+                                {/* Amount & Currency */}
+                                <div className="flex-1 space-y-1.5">
+                                    <Label htmlFor="amount" className="text-xs text-slate-400">Monto</Label>
+                                    <div className="relative">
+                                        <span className="absolute left-4 top-2.5 text-slate-500 font-bold">{currency === 'ARS' ? '$' : 'US$'}</span>
+                                        <Input id="amount" type="number" min="0" step="0.01" placeholder="0,00"
+                                            className="pl-12 text-xl font-black bg-white/5 border-white/10 h-12" value={amount} onChange={e => setAmount(e.target.value)} required />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs text-slate-400">Moneda</Label>
+                                    <div className="flex gap-1 bg-white/5 p-1 rounded-xl border border-white/10 h-12">
+                                        {(['ARS', 'USD'] as const).map(curr => (
+                                            <button
+                                                key={curr}
+                                                type="button"
+                                                onClick={() => setCurrency(curr)}
+                                                className={`px-3 rounded-lg text-xs font-black transition-all ${currency === curr ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-500 hover:text-slate-300'}`}
+                                            >
+                                                {curr}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
 

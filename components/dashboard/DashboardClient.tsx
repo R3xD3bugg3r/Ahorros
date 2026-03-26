@@ -13,10 +13,15 @@ import TransactionEditModal from '@/components/transactions/TransactionEditModal
 import { Transaction, UserProfile } from '@/lib/types'
 
 const ARS = (n: number) => n.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 })
+const USD = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 const ARS_SHORT = (n: number) => {
     if (n >= 1000000) return `$${(n / 1000000).toFixed(1)}MM`
     if (n >= 1000) return `$${(n / 1000).toFixed(0)}k`
     return `$${n}`
+}
+const USD_SHORT = (n: number) => {
+    if (n >= 1000) return `U$S ${(n / 1000).toFixed(1)}k`
+    return `U$S ${n}`
 }
 
 const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316', '#a3e635']
@@ -68,12 +73,35 @@ export default function DashboardClient({ user, profile, initialTransactions }: 
 
     // Calculations
     const stats = useMemo(() => {
-        const income = monthTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
-        const expense = monthTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
-        const investment = monthTransactions.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0)
-        const savings = monthTransactions.filter(t => t.type === 'savings').reduce((s, t) => s + t.amount, 0)
-        return { income, expense, investment, savings, balance: income - expense }
+        const income = monthTransactions.filter(t => t.type === 'income' && (t.currency === 'ARS' || !t.currency)).reduce((s, t) => s + t.amount, 0)
+        const expense = monthTransactions.filter(t => t.type === 'expense' && (t.currency === 'ARS' || !t.currency)).reduce((s, t) => s + t.amount, 0)
+        const investment = monthTransactions.filter(t => t.type === 'investment' && (t.currency === 'ARS' || !t.currency)).reduce((s, t) => s + t.amount, 0)
+        const savings = monthTransactions.filter(t => t.type === 'savings' && (t.currency === 'ARS' || !t.currency)).reduce((s, t) => s + t.amount, 0)
+        
+        const incomeUSD = monthTransactions.filter(t => t.type === 'income' && t.currency === 'USD').reduce((s, t) => s + t.amount, 0)
+        const expenseUSD = monthTransactions.filter(t => t.type === 'expense' && t.currency === 'USD').reduce((s, t) => s + t.amount, 0)
+        const investmentUSD = monthTransactions.filter(t => t.type === 'investment' && t.currency === 'USD').reduce((s, t) => s + t.amount, 0)
+        const savingsUSD = monthTransactions.filter(t => t.type === 'savings' && t.currency === 'USD').reduce((s, t) => s + t.amount, 0)
+
+        return { 
+            income, expense, investment, savings, balance: income - expense,
+            incomeUSD, expenseUSD, investmentUSD, savingsUSD, balanceUSD: incomeUSD - expenseUSD
+        }
     }, [monthTransactions])
+
+    // Yearly Stats
+    const yearlyStats = useMemo(() => {
+        const currentYear = currentMonth.substring(0, 4)
+        const yearTxs = transactions.filter(t => (t.date || t.created_at).startsWith(currentYear))
+        
+        const expense = yearTxs.filter(t => t.type === 'expense' && (t.currency === 'ARS' || !t.currency)).reduce((s, t) => s + t.amount, 0)
+        const savings = yearTxs.filter(t => (t.type === 'savings' || t.type === 'investment') && (t.currency === 'ARS' || !t.currency)).reduce((s, t) => s + t.amount, 0)
+        
+        const expenseUSD = yearTxs.filter(t => t.type === 'expense' && t.currency === 'USD').reduce((s, t) => s + t.amount, 0)
+        const savingsUSD = yearTxs.filter(t => (t.type === 'savings' || t.type === 'investment') && t.currency === 'USD').reduce((s, t) => s + t.amount, 0)
+        
+        return { expense, savings, expenseUSD, savingsUSD }
+    }, [transactions, currentMonth])
 
     // Category Summary (Expenses)
     const categorySummary = useMemo(() => {
@@ -204,17 +232,49 @@ export default function DashboardClient({ user, profile, initialTransactions }: 
                 </div>
 
                 {/* Reserves Row */}
-                {(stats.investment > 0 || stats.savings > 0) && (
-                    <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <Landmark size={14} className="text-violet-400" />
-                            <span className="text-xs text-slate-400 font-medium font-mono">Reservas (Inv/Ahorro)</span>
+                {(stats.investment > 0 || stats.savings > 0 || stats.investmentUSD > 0 || stats.savingsUSD > 0) && (
+                    <div className="mt-4 pt-4 border-t border-white/5 space-y-2">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Landmark size={14} className="text-violet-400" />
+                                <span className="text-xs text-slate-400 font-medium font-mono uppercase">Reservas Mensales</span>
+                            </div>
+                            <div className="flex gap-2">
+                                {(stats.investment + stats.savings > 0) && (
+                                    <span className="text-xs font-bold text-violet-400 bg-violet-400/10 px-2 py-0.5 rounded-lg border border-violet-400/20">
+                                        {ARS(stats.investment + stats.savings)}
+                                    </span>
+                                )}
+                                {(stats.investmentUSD + stats.savingsUSD > 0) && (
+                                    <span className="text-xs font-bold text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded-lg border border-blue-400/20">
+                                        {USD(stats.investmentUSD + stats.savingsUSD)}
+                                    </span>
+                                )}
+                            </div>
                         </div>
-                        <span className="text-sm font-bold text-violet-400 bg-violet-400/10 px-2 py-0.5 rounded-lg border border-violet-400/20">
-                            {ARS(stats.investment + stats.savings)}
-                        </span>
                     </div>
                 )}
+            </div>
+
+            {/* Yearly Accumulation Section */}
+            <div className="glass rounded-2xl p-4 border border-amber-500/10 bg-amber-500/5">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xs font-bold text-amber-500/80 uppercase tracking-widest flex items-center gap-2">
+                        <TrendingUp size={14} /> Acumulado Anual {y}
+                    </h3>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                        <p className="text-[10px] text-slate-500 uppercase font-bold">Total Gastado</p>
+                        <p className="text-sm font-black text-red-400">{ARS(yearlyStats.expense)}</p>
+                        {yearlyStats.expenseUSD > 0 && <p className="text-[10px] font-bold text-red-400/70">{USD(yearlyStats.expenseUSD)}</p>}
+                    </div>
+                    <div className="space-y-1 text-right">
+                        <p className="text-[10px] text-slate-500 uppercase font-bold">Total Reservado</p>
+                        <p className="text-sm font-black text-violet-400">{ARS(yearlyStats.savings)}</p>
+                        {yearlyStats.savingsUSD > 0 && <p className="text-[10px] font-bold text-violet-400/70">{USD(yearlyStats.savingsUSD)}</p>}
+                    </div>
+                </div>
             </div>
 
             {/* Historical Charts (MoM) */}
@@ -250,34 +310,55 @@ export default function DashboardClient({ user, profile, initialTransactions }: 
 
             {/* Main Charts Row */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Gastos por Categoría */}
+                {/* Gastos por Categoría - Horizontal Bar Chart */}
                 {categorySummary.length > 0 && (
-                    <div className="glass rounded-2xl p-4 flex flex-col min-h-[180px]">
-                        <h3 className="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
-                           <div className="w-1.5 h-1.5 rounded-full bg-red-400" /> Gastos
+                    <div className="glass rounded-2xl p-4 flex flex-col min-h-[260px] md:col-span-2">
+                        <h3 className="text-sm font-semibold text-slate-300 mb-6 flex items-center gap-2">
+                           <div className="w-1.5 h-1.5 rounded-full bg-red-400" /> Distribución de Gastos
                         </h3>
-                        <div className="flex items-center gap-4 flex-1">
-                            <div className="w-24 h-24 flex-shrink-0">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie data={categorySummary} dataKey="total" nameKey="name" cx="50%" cy="50%" innerRadius={24} outerRadius={40} paddingAngle={2}>
-                                            {categorySummary.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} onClick={() => setFilterCategory(prev => prev === categorySummary[i].name ? null : categorySummary[i].name)} style={{ cursor: 'pointer', outline: 'none' }} fillOpacity={filterCategory && filterCategory !== categorySummary[i].name ? 0.3 : 1} />)}
-                                        </Pie>
-                                        <Tooltip formatter={(v: any) => ARS(v)} contentStyle={{ background: '#0f172a', border: 'none', borderRadius: '8px', fontSize: '11px' }} />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                            </div>
-                            <div className="flex-1 space-y-1.5 max-h-[120px] overflow-y-auto pr-1 custom-scrollbar">
-                                {categorySummary.slice(0, 6).map((c, i) => (
-                                    <div key={c.name} onClick={() => setFilterCategory(prev => prev === c.name ? null : c.name)} className={`flex items-center justify-between cursor-pointer group transition-all ${filterCategory === c.name ? 'scale-105 origin-left' : ''} ${filterCategory && filterCategory !== c.name ? 'opacity-30' : 'opacity-100'}`}>
-                                        <div className="flex items-center gap-2 min-w-0">
-                                            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: COLORS[i % COLORS.length] }} />
-                                            <span className="text-[11px] text-slate-400 truncate group-hover:text-white transition-colors capitalize">{c.name}</span>
-                                        </div>
-                                        <span className="text-[11px] font-bold text-slate-200 tabular-nums">{ARS(c.total)}</span>
-                                    </div>
-                                ))}
-                            </div>
+                        <div className="flex-1 w-full">
+                            <ResponsiveContainer width="100%" height={Math.max(160, categorySummary.length * 35)}>
+                                <BarChart
+                                    layout="vertical"
+                                    data={categorySummary}
+                                    margin={{ top: 5, right: 60, left: 10, bottom: 5 }}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#ffffff05" />
+                                    <XAxis type="number" hide />
+                                    <YAxis 
+                                        type="category" 
+                                        dataKey="name" 
+                                        stroke="#94a3b8" 
+                                        fontSize={11} 
+                                        tickLine={false} 
+                                        axisLine={false}
+                                        width={80}
+                                        tickFormatter={(v) => v.length > 12 ? v.substring(0, 10) + '..' : v}
+                                    />
+                                    <Tooltip 
+                                        cursor={{ fill: '#ffffff05' }} 
+                                        formatter={(v: any) => ARS(v)} 
+                                        contentStyle={{ background: '#0f172a', border: 'none', borderRadius: '12px', fontSize: '11px' }} 
+                                    />
+                                    <Bar dataKey="total" radius={[0, 4, 4, 0]} barSize={16}>
+                                        {categorySummary.map((_, i) => (
+                                            <Cell 
+                                                key={i} 
+                                                fill={COLORS[i % COLORS.length]} 
+                                                fillOpacity={filterCategory && filterCategory !== categorySummary[i].name ? 0.3 : 1}
+                                                onClick={() => setFilterCategory(prev => prev === categorySummary[i].name ? null : categorySummary[i].name)}
+                                                style={{ cursor: 'pointer', outline: 'none' }}
+                                            />
+                                        ))}
+                                        <LabelList 
+                                            dataKey="total" 
+                                            position="right" 
+                                            formatter={(v: any) => ARS_SHORT(v)} 
+                                            style={{ fill: '#cbd5e1', fontSize: '10px', fontWeight: 'bold' }} 
+                                        />
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
                         </div>
                     </div>
                 )}
@@ -385,7 +466,7 @@ export default function DashboardClient({ user, profile, initialTransactions }: 
                                             </p>
                                         </div>
                                         <p className={`text-sm font-bold flex-shrink-0 ${t.type === 'income' ? 'text-emerald-400' : t.type === 'expense' ? 'text-red-400' : 'text-violet-300'}`}>
-                                            {t.type === 'income' ? '+' : '-'}{ARS_SHORT(t.amount)}
+                                            {t.type === 'income' ? '+' : '-'}{t.currency === 'USD' ? USD_SHORT(t.amount) : ARS_SHORT(t.amount)}
                                         </p>
                                     </div>
                                 )

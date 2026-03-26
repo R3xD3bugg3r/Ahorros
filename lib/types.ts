@@ -29,17 +29,16 @@ export interface Category {
 
 export interface Transaction {
     id: string
-    household_id: string
-    user_id: string
-    category_id: string | null
     amount: number
     type: TransactionType
-    description: string | null
+    description: string
     date: string
-    created_at: string
-    // Joined fields
+    currency: 'ARS' | 'USD'
+    category_id: string
+    household_id: string
+    user_id: string
     categories?: Category
-    users?: UserProfile
+    users?: { display_name: string }
 }
 
 export interface MonthlyBalance {

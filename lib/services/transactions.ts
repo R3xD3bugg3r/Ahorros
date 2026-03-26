@@ -48,81 +48,54 @@ export const transactionService = {
     async createTransaction(payload: {
         amount: number,
         type: TransactionType,
-        category_name?: string,
-        description?: string,
-        date?: string
+        description: string,
+        category_name: string,
+        date: string,
+        currency?: 'ARS' | 'USD'
     }) {
         const { data: { user } } = await supabase.auth.getUser()
-        if (!user) throw new Error('Unauthorized')
+        if (!user) throw new Error('Not authenticated')
 
-        // 1. Get user profile and household
-        let { data: profile, error: profileError } = await supabase
-            .from('users')
-            .select('household_id, display_name')
-            .eq('id', user.id)
+        const { data: profile } = await supabase.from('users').select('household_id').eq('id', user.id).single()
+        if (!profile?.household_id) throw new Error('No household')
+
+        // 1. Get or create category
+        let categoryId: string | null = null
+        const { data: cat } = await supabase
+            .from('categories')
+            .select('id')
+            .eq('household_id', profile.household_id)
+            .eq('name', payload.category_name)
+            .eq('type', payload.type)
             .single()
 
-        if (profileError) throw profileError
-
-        let household_id = profile?.household_id
-
-        // 2. Household recovery (same as API route but cleaner)
-        if (!household_id) {
-            const userName = profile?.display_name || user.email?.split('@')[0] || 'Usuario'
-            const { data: newHh, error: hhError } = await supabase
-                .from('households')
-                .insert({ name: `Hogar de ${userName}` })
-                .select('id')
-                .single()
-
-            if (hhError || !newHh) throw new Error('No se pudo generar el hogar automáticamente.')
-            household_id = newHh.id
-            await supabase.from('users').update({ household_id }).eq('id', user.id)
-        }
-
-        // 3. Resolve category
-        let categoryId = null
-        if (payload.category_name) {
-            let { data: cat } = await supabase
+        if (cat) {
+            categoryId = cat.id
+        } else {
+            const { data: newCat } = await supabase
                 .from('categories')
+                .insert({
+                    household_id: profile.household_id,
+                    name: payload.category_name,
+                    type: payload.type,
+                    is_custom: true
+                })
                 .select('id')
-                .eq('name', payload.category_name)
-                .eq('type', payload.type)
-                .limit(1)
                 .single()
-
-            if (!cat) {
-                const { data: newCat, error: catError } = await supabase
-                    .from('categories')
-                    .insert({ 
-                        name: payload.category_name, 
-                        type: payload.type, 
-                        is_custom: true, 
-                        household_id: household_id 
-                    })
-                    .select('id')
-                    .single()
-                
-                if (catError) throw catError
-                cat = newCat
-            }
-            if (cat) categoryId = cat.id
+            categoryId = newCat?.id || null
         }
 
-        // 4. Insert transaction
-        const { data, error } = await supabase
-            .from('transactions')
-            .insert({
-                household_id: household_id,
-                user_id: user.id,
-                amount: payload.amount,
-                type: payload.type,
-                category_id: categoryId,
-                description: payload.description || null,
-                date: payload.date || new Date().toISOString(),
-            })
-            .select('*, categories(*)')
-            .single()
+        // 2. Insert transaction
+        const { data, error } = await supabase.from('transactions').insert({
+            household_id: profile.household_id,
+            user_id: user.id,
+            category_id: categoryId,
+            amount: payload.amount,
+            type: payload.type,
+            description: payload.description,
+            date: payload.date,
+            currency: payload.currency || 'ARS'
+        }).select('*, categories(*)').single()
 
         if (error) throw error
         return data as Transaction
@@ -130,10 +103,11 @@ export const transactionService = {
 
     async updateTransaction(id: string, payload: {
         amount?: number,
-        type: TransactionType,
-        category_name?: string,
+        type?: TransactionType,
         description?: string,
-        date?: string
+        category_name?: string,
+        date?: string,
+        currency?: 'ARS' | 'USD'
     }) {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) throw new Error('Unauthorized')
@@ -141,13 +115,13 @@ export const transactionService = {
         const { data: profile } = await supabase.from('users').select('household_id').eq('id', user.id).single()
         const household_id = profile?.household_id
 
-        let categoryId = null
+        let categoryId = undefined
         if (payload.category_name) {
             let { data: cat } = await supabase
                 .from('categories')
                 .select('id')
                 .eq('name', payload.category_name)
-                .eq('type', payload.type)
+                .eq('type', payload.type || 'expense')
                 .limit(1)
                 .single()
 
@@ -156,7 +130,7 @@ export const transactionService = {
                     .from('categories')
                     .insert({ 
                         name: payload.category_name, 
-                        type: payload.type, 
+                        type: payload.type || 'expense', 
                         is_custom: true, 
                         household_id: household_id 
                     })
@@ -174,7 +148,8 @@ export const transactionService = {
                 type: payload.type,
                 category_id: categoryId,
                 description: payload.description,
-                date: payload.date
+                date: payload.date,
+                currency: payload.currency
             })
             .eq('id', id)
             .select('*, categories(*)')
