@@ -181,14 +181,16 @@ export default function TransactionEditModal({ transaction, isOpen, onClose }: T
                                 {transaction?.type === 'income' ? 'Cuenta de destino' : 'Cuenta de origen'}
                             </Label>
                             <select 
-                                className="w-full h-10 bg-white/5 border border-white/10 rounded-xl px-3 text-sm focus:border-primary/50 transition-all outline-none"
+                                className="w-full h-10 bg-slate-800 border border-white/10 rounded-xl px-3 text-sm focus:border-primary/50 transition-all outline-none text-white appearance-none cursor-pointer"
                                 value={selectedAccount}
                                 onChange={e => setSelectedAccount(e.target.value)}
                                 required={transaction?.type === 'income'}
                             >
-                                <option value="">{transaction?.type === 'income' ? 'Seleccionar cuenta...' : 'Seleccionar cuenta (opcional)...'}</option>
+                                <option value="" className="bg-slate-800 text-slate-400">{transaction?.type === 'income' ? 'Seleccionar cuenta...' : 'Seleccionar cuenta (opcional)...'}</option>
                                 {accounts.map(acc => (
-                                    <option key={acc.id} value={acc.id}>{acc.name} ({acc.currency})</option>
+                                    <option key={acc.id} value={acc.id} className="bg-slate-800 text-white">
+                                        {acc.name} — Dispon.: {acc.currency === 'ARS' ? '$' : 'u$s'} {acc.balance?.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                    </option>
                                 ))}
                             </select>
                         </div>
