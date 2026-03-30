@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/client'
-import { Transaction, Category, TransactionType, CreditCard } from '@/lib/types'
+import { Transaction, Category, TransactionType, CreditCard, Account } from '@/lib/types'
 
 const supabase = createClient()
 
@@ -250,13 +250,35 @@ export const transactionService = {
         const { data: profile } = await supabase.from('users').select('household_id').eq('id', user.id).single()
         if (!profile?.household_id) throw new Error('No household')
 
-        const { data, error } = await supabase
+        // Fetch accounts
+        const { data: accounts, error: accError } = await supabase
             .from('accounts')
             .select('*')
             .eq('household_id', profile.household_id)
             .order('name', { ascending: true })
-        if (error) throw error
-        return data as any[] // Using Account when proper
+        if (accError) throw accError
+
+        // Fetch transactions summary for these accounts
+        const { data: txs, error: txError } = await supabase
+            .from('transactions')
+            .select('amount, type, account_id')
+            .eq('household_id', profile.household_id)
+            .not('account_id', 'is', null)
+        
+        if (txError) throw txError
+
+        // Calculate current balance for each account
+        const accountsWithBalance = accounts.map(account => {
+            const accountTxs = (txs || []).filter(tx => tx.account_id === account.id)
+            const balance = accountTxs.reduce((acc, tx) => {
+                if (tx.type === 'income') return acc + Number(tx.amount)
+                return acc - Number(tx.amount)
+            }, Number(account.initial_balance || 0))
+
+            return { ...account, balance }
+        })
+
+        return accountsWithBalance as (Account & { balance: number })[]
     },
 
     async createAccount(payload: any) {

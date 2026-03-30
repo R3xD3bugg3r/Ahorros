@@ -133,17 +133,22 @@ export default function AccountsClient() {
                                 <div>
                                     <h3 className="font-bold">{account.name}</h3>
                                     <p className="text-xs text-slate-500 uppercase tracking-widest font-medium">
-                                        {account.type === 'bank' ? 'Banco' : account.type === 'cash' ? 'Efectivo' : 'Billetera'} • {account.currency}
+                                        {account.type === 'bank' ? 'Banco' : account.type === 'cash' ? 'Efectivo' : 'Billetera'}
                                     </p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={() => handleEdit(account)} className="p-2 text-slate-400 hover:text-primary transition-colors">
-                                    <Pencil size={18} />
-                                </button>
-                                <button onClick={() => handleDelete(account.id)} className="p-2 text-slate-400 hover:text-red-400 transition-colors">
-                                    <Trash2 size={18} />
-                                </button>
+                            <div className="flex flex-col items-end gap-1">
+                                <span className={`font-bold ${(account as any).balance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                    {account.currency === 'ARS' ? '$' : 'u$s'} {(account as any).balance.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                </span>
+                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button onClick={() => handleEdit(account)} className="p-2 text-slate-400 hover:text-primary transition-colors">
+                                        <Pencil size={18} />
+                                    </button>
+                                    <button onClick={() => handleDelete(account.id)} className="p-2 text-slate-400 hover:text-red-400 transition-colors">
+                                        <Trash2 size={18} />
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     ))
