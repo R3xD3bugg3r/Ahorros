@@ -79,18 +79,16 @@ export default function AccountsClient() {
             if (editingAccount) {
                 await transactionService.updateAccount(editingAccount.id, payload)
             } else {
-                // We need to add createAccount to service if not there, 
-                // but for now I added get/update/delete. Let me check service.
-                // Oh, I forgot to add createAccount in the service! 
-                // I'll add it in the next step.
+                await transactionService.createAccount(payload)
             }
             
             setIsModalOpen(false)
             resetForm()
             loadAccounts()
             router.refresh()
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error saving account:', error)
+            alert('Error al guardar la cuenta: ' + (error.message || JSON.stringify(error)))
         }
     }
 
