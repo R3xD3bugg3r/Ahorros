@@ -219,5 +219,27 @@ export const transactionService = {
             .order('name', { ascending: true })
         if (error) throw error
         return data as CreditCard[]
+    },
+
+    async updateCreditCard(id: string, payload: Partial<Omit<CreditCard, 'id' | 'household_id' | 'created_at'>>) {
+        const { data, error } = await supabase
+            .from('credit_cards')
+            .update(payload)
+            .eq('id', id)
+            .select()
+            .single()
+        if (error) throw error
+        return data as CreditCard
+    },
+
+    async getTransactionsByCard(cardId: string) {
+        const { data, error } = await supabase
+            .from('transactions')
+            .select('*, categories(*)')
+            .eq('credit_card_id', cardId)
+            .order('statement_month', { ascending: false })
+            .order('date', { ascending: false })
+        if (error) throw error
+        return data as Transaction[]
     }
 }

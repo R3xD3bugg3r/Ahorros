@@ -8,8 +8,16 @@ import { useRouter } from 'next/navigation'
 import { transactionService } from '@/lib/services/transactions'
 import { Category, TransactionType, CreditCard } from '@/lib/types'
 
-export default function TransactionModal() {
-    const [open, setOpen] = useState(false)
+interface TransactionModalProps {
+    initialOpen?: boolean
+    defaultPaymentMethod?: 'cash' | 'debit' | 'credit_card'
+    defaultCreditCardId?: string
+    onClose?: () => void
+    hideFab?: boolean
+}
+
+export default function TransactionModal({ initialOpen = false, defaultPaymentMethod, defaultCreditCardId, onClose, hideFab = false }: TransactionModalProps = {}) {
+    const [open, setOpen] = useState(initialOpen)
     const [type, setType] = useState<TransactionType>('expense')
     const [amount, setAmount] = useState('')
     const [description, setDescription] = useState('')
@@ -30,8 +38,11 @@ export default function TransactionModal() {
         if (open) {
             transactionService.getCategories().then(setAllCategories).catch(console.error)
             transactionService.getCreditCards().then(setCreditCards).catch(console.error)
+            
+            if (defaultPaymentMethod) setPaymentMethod(defaultPaymentMethod)
+            if (defaultCreditCardId) setSelectedCreditCard(defaultCreditCardId)
         }
-    }, [open])
+    }, [open, defaultPaymentMethod, defaultCreditCardId])
 
     const filteredCategories = allCategories.filter(c => c.type === type)
 
@@ -86,22 +97,24 @@ export default function TransactionModal() {
     return (
         <>
             {/* FAB Button */}
-            <button
-                onClick={() => setOpen(true)}
-                className="fixed bottom-20 right-4 z-50 w-14 h-14 rounded-full bg-primary shadow-lg shadow-primary/40 flex items-center justify-center text-white hover:bg-primary/90 transition-all active:scale-95"
-                aria-label="Agregar transacción"
-            >
-                <Plus size={26} />
-            </button>
+            {!hideFab && (
+                <button
+                    onClick={() => setOpen(true)}
+                    className="fixed bottom-20 right-4 z-50 w-14 h-14 rounded-full bg-primary shadow-lg shadow-primary/40 flex items-center justify-center text-white hover:bg-primary/90 transition-all active:scale-95"
+                    aria-label="Agregar transacción"
+                >
+                    <Plus size={26} />
+                </button>
+            )}
 
             {/* Modal */}
             {open && (
                 <div className="fixed inset-0 z-50 flex flex-col justify-end">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setOpen(false); onClose?.(); }} />
                     <div className="relative glass rounded-t-3xl p-6 pb-safe max-h-[90vh] overflow-y-auto border-t border-white/10 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
                         <div className="flex items-center justify-between mb-5">
                             <h2 className="text-xl font-bold">Nueva Transacción</h2>
-                            <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-white"><X size={22} /></button>
+                            <button onClick={() => { setOpen(false); onClose?.(); }} className="text-slate-400 hover:text-white"><X size={22} /></button>
                         </div>
 
                         {/* Type toggle */}

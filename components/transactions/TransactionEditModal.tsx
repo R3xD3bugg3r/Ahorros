@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useRouter } from 'next/navigation'
 import { transactionService } from '@/lib/services/transactions'
-import { Category, Transaction, TransactionType } from '@/lib/types'
+import { Category, Transaction, TransactionType, CreditCard } from '@/lib/types'
 
 interface TransactionEditModalProps {
     transaction: Transaction | null
@@ -22,6 +22,11 @@ export default function TransactionEditModal({ transaction, isOpen, onClose }: T
     const [customCategory, setCustomCategory] = useState('')
     const [date, setDate] = useState('')
     const [currency, setCurrency] = useState<'ARS' | 'USD'>('ARS')
+    const [paymentMethod, setPaymentMethod] = useState<'cash' | 'debit' | 'credit_card'>('cash')
+    const [creditCardId, setCreditCardId] = useState('')
+    const [creditCards, setCreditCards] = useState<CreditCard[]>([])
+    const [installments, setInstallments] = useState('1')
+    const [statementMonth, setStatementMonth] = useState('')
     const [loading, setLoading] = useState(false)
     const [allCategories, setAllCategories] = useState<Category[]>([])
     const router = useRouter()
@@ -29,6 +34,7 @@ export default function TransactionEditModal({ transaction, isOpen, onClose }: T
     useEffect(() => {
         if (isOpen) {
             transactionService.getCategories().then(setAllCategories).catch(console.error)
+            transactionService.getCreditCards().then(setCreditCards).catch(console.error)
         }
     }, [isOpen])
 
@@ -43,6 +49,11 @@ export default function TransactionEditModal({ transaction, isOpen, onClose }: T
             
             // Fix datetime to simple date string
             setDate(new Date(transaction.date || new Date().toISOString()).toISOString().split('T')[0])
+            
+            setPaymentMethod(transaction.payment_method || 'cash')
+            setCreditCardId(transaction.credit_card_id || '')
+            setInstallments(transaction.installments_count?.toString() || '1')
+            setStatementMonth(transaction.statement_month || '')
         }
     }, [transaction, isOpen])
 
@@ -78,8 +89,12 @@ export default function TransactionEditModal({ transaction, isOpen, onClose }: T
                 description,
                 category_name: categoryName,
                 date,
-                currency
-            })
+                currency,
+                payment_method: paymentMethod,
+                credit_card_id: paymentMethod === 'credit_card' ? creditCardId : null,
+                installments_count: parseInt(installments),
+                statement_month: paymentMethod === 'credit_card' ? statementMonth : null
+            } as any)
             
             onClose()
             router.refresh()
@@ -158,6 +173,68 @@ export default function TransactionEditModal({ transaction, isOpen, onClose }: T
                         <Label htmlFor="edit-date" className="text-xs text-slate-400">Fecha de impacto</Label>
                         <Input id="edit-date" type="date" className="bg-white/5 border-white/10" value={date} onChange={e => setDate(e.target.value)} required />
                     </div>
+
+                    <div className="space-y-1.5">
+                        <Label className="text-xs text-slate-400">Método de Pago</Label>
+                        <div className="grid grid-cols-3 gap-2">
+                            {[
+                                { v: 'cash', l: 'Efectivo' },
+                                { v: 'debit', l: 'Débito' },
+                                { v: 'credit_card', l: 'Tarjeta' }
+                            ].map(method => (
+                                <button
+                                    key={method.v}
+                                    type="button"
+                                    onClick={() => setPaymentMethod(method.v as any)}
+                                    className={`py-2.5 rounded-xl text-xs font-bold border transition-all ${paymentMethod === method.v ? 'bg-primary/20 border-primary/50 text-primary' : 'bg-white/5 border-white/5 text-slate-500'}`}
+                                >
+                                    {method.l}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {paymentMethod === 'credit_card' && (
+                        <div className="space-y-4 p-4 rounded-2xl bg-white/5 border border-white/10 animate-in fade-in slide-in-from-top-2">
+                            <div className="space-y-1.5">
+                                <Label className="text-xs text-slate-400">Tarjeta</Label>
+                                <select 
+                                    className="w-full h-10 bg-white/5 border border-white/10 rounded-xl px-3 text-sm"
+                                    value={creditCardId}
+                                    onChange={e => setCreditCardId(e.target.value)}
+                                    required
+                                >
+                                    <option value="">Seleccionar tarjeta...</option>
+                                    {creditCards.map(card => (
+                                        <option key={card.id} value={card.id}>{card.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs text-slate-400">Cuotas</Label>
+                                    <Input 
+                                        type="number" 
+                                        min="1" 
+                                        max="24" 
+                                        value={installments} 
+                                        onChange={e => setInstallments(e.target.value)}
+                                        className="bg-white/5 border-white/10"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs text-slate-400">Mes de Pago</Label>
+                                    <Input 
+                                        type="month" 
+                                        value={statementMonth} 
+                                        onChange={e => setStatementMonth(e.target.value)}
+                                        className="bg-white/5 border-white/10"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="space-y-1.5">
                         <Label className="text-xs text-slate-400">Categoría</Label>
