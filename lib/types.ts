@@ -37,6 +37,16 @@ export interface CreditCard {
     created_at: string
 }
 
+export interface Account {
+    id: string
+    household_id: string
+    name: string
+    type: 'bank' | 'cash' | 'virtual_wallet'
+    currency: 'ARS' | 'USD'
+    initial_balance: number
+    created_at: string
+}
+
 export interface Transaction {
     id: string
     amount: number
@@ -49,12 +59,14 @@ export interface Transaction {
     user_id: string
     payment_method: 'cash' | 'debit' | 'credit_card'
     credit_card_id?: string | null
+    account_id?: string | null
     installments_count: number
     installment_number: number
     statement_month?: string | null
     is_consolidated: boolean
     categories?: Category
     credit_cards?: CreditCard
+    accounts?: Account
     users?: { display_name: string }
 }
 

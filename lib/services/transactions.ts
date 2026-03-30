@@ -54,6 +54,7 @@ export const transactionService = {
         currency?: 'ARS' | 'USD',
         payment_method?: 'cash' | 'debit' | 'credit_card',
         credit_card_id?: string | null,
+        account_id?: string | null,
         installments_count?: number,
         statement_month?: string | null
     }) {
@@ -114,6 +115,7 @@ export const transactionService = {
                 currency: payload.currency || 'ARS',
                 payment_method: payload.payment_method || 'cash',
                 credit_card_id: payload.credit_card_id,
+                account_id: payload.account_id,
                 installments_count: installments,
                 installment_number: i,
                 statement_month: currentStatementMonth
@@ -132,7 +134,8 @@ export const transactionService = {
         description?: string,
         category_name?: string,
         date?: string,
-        currency?: 'ARS' | 'USD'
+        currency?: 'ARS' | 'USD',
+        account_id?: string | null
     }) {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) throw new Error('Unauthorized')
@@ -174,7 +177,8 @@ export const transactionService = {
                 category_id: categoryId,
                 description: payload.description,
                 date: payload.date,
-                currency: payload.currency
+                currency: payload.currency,
+                account_id: payload.account_id
             })
             .eq('id', id)
             .select('*, categories(*)')
@@ -203,12 +207,9 @@ export const transactionService = {
         if (error) throw error
         return true
     },
-
     async getCreditCards() {
-        // First get the user's household_id
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) throw new Error('Not authenticated')
-
         const { data: profile } = await supabase.from('users').select('household_id').eq('id', user.id).single()
         if (!profile?.household_id) throw new Error('No household')
 
@@ -241,5 +242,55 @@ export const transactionService = {
             .order('date', { ascending: false })
         if (error) throw error
         return data as Transaction[]
+    },
+
+    async getAccounts() {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) throw new Error('Not authenticated')
+        const { data: profile } = await supabase.from('users').select('household_id').eq('id', user.id).single()
+        if (!profile?.household_id) throw new Error('No household')
+
+        const { data, error } = await supabase
+            .from('accounts')
+            .select('*')
+            .eq('household_id', profile.household_id)
+            .order('name', { ascending: true })
+        if (error) throw error
+        return data as any[] // Using Account when proper
+    },
+
+    async createAccount(payload: any) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) throw new Error('Not authenticated')
+        const { data: profile } = await supabase.from('users').select('household_id').eq('id', user.id).single()
+        if (!profile?.household_id) throw new Error('No household')
+
+        const { data, error } = await supabase
+            .from('accounts')
+            .insert({ ...payload, household_id: profile.household_id })
+            .select()
+            .single()
+        if (error) throw error
+        return data
+    },
+
+    async updateAccount(id: string, payload: any) {
+        const { data, error } = await supabase
+            .from('accounts')
+            .update(payload)
+            .eq('id', id)
+            .select()
+            .single()
+        if (error) throw error
+        return data
+    },
+
+    async deleteAccount(id: string) {
+        const { error } = await supabase
+            .from('accounts')
+            .delete()
+            .eq('id', id)
+        if (error) throw error
+        return true
     }
 }

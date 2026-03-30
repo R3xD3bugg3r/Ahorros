@@ -24,6 +24,8 @@ export default function TransactionEditModal({ transaction, isOpen, onClose }: T
     const [currency, setCurrency] = useState<'ARS' | 'USD'>('ARS')
     const [paymentMethod, setPaymentMethod] = useState<'cash' | 'debit' | 'credit_card'>('cash')
     const [creditCardId, setCreditCardId] = useState('')
+    const [selectedAccount, setSelectedAccount] = useState('')
+    const [accounts, setAccounts] = useState<any[]>([])
     const [creditCards, setCreditCards] = useState<CreditCard[]>([])
     const [installments, setInstallments] = useState('1')
     const [statementMonth, setStatementMonth] = useState('')
@@ -35,6 +37,7 @@ export default function TransactionEditModal({ transaction, isOpen, onClose }: T
         if (isOpen) {
             transactionService.getCategories().then(setAllCategories).catch(console.error)
             transactionService.getCreditCards().then(setCreditCards).catch(console.error)
+            transactionService.getAccounts().then(setAccounts).catch(console.error)
         }
     }, [isOpen])
 
@@ -52,6 +55,7 @@ export default function TransactionEditModal({ transaction, isOpen, onClose }: T
             
             setPaymentMethod(transaction.payment_method || 'cash')
             setCreditCardId(transaction.credit_card_id || '')
+            setSelectedAccount(transaction.account_id || '')
             setInstallments(transaction.installments_count?.toString() || '1')
             setStatementMonth(transaction.statement_month || '')
         }
@@ -92,6 +96,7 @@ export default function TransactionEditModal({ transaction, isOpen, onClose }: T
                 currency,
                 payment_method: paymentMethod,
                 credit_card_id: paymentMethod === 'credit_card' ? creditCardId : null,
+                account_id: selectedAccount || null,
                 installments_count: parseInt(installments),
                 statement_month: paymentMethod === 'credit_card' ? statementMonth : null
             } as any)
@@ -168,6 +173,26 @@ export default function TransactionEditModal({ transaction, isOpen, onClose }: T
                             </div>
                         </div>
                     </div>
+
+                    {/* Account Selector (for Income or non-Credit expenses) */}
+                    {(transaction?.type === 'income' || (transaction?.type === 'expense' && paymentMethod !== 'credit_card')) && (
+                        <div className="space-y-1.5 p-4 rounded-2xl bg-white/5 border border-white/10 animate-in fade-in slide-in-from-top-2">
+                            <Label className="text-xs text-slate-400">
+                                {transaction?.type === 'income' ? 'Cuenta de destino' : 'Cuenta de origen'}
+                            </Label>
+                            <select 
+                                className="w-full h-10 bg-white/5 border border-white/10 rounded-xl px-3 text-sm focus:border-primary/50 transition-all outline-none"
+                                value={selectedAccount}
+                                onChange={e => setSelectedAccount(e.target.value)}
+                                required={transaction?.type === 'income'}
+                            >
+                                <option value="">{transaction?.type === 'income' ? 'Seleccionar cuenta...' : 'Seleccionar cuenta (opcional)...'}</option>
+                                {accounts.map(acc => (
+                                    <option key={acc.id} value={acc.id}>{acc.name} ({acc.currency})</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
 
                     <div className="space-y-1.5">
                         <Label htmlFor="edit-date" className="text-xs text-slate-400">Fecha de impacto</Label>

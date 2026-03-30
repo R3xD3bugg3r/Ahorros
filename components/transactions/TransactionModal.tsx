@@ -28,6 +28,8 @@ export default function TransactionModal({ initialOpen = false, defaultPaymentMe
     const [paymentMethod, setPaymentMethod] = useState<'cash' | 'debit' | 'credit_card'>('cash')
     const [creditCards, setCreditCards] = useState<CreditCard[]>([])
     const [selectedCreditCard, setSelectedCreditCard] = useState('')
+    const [accounts, setAccounts] = useState<any[]>([])
+    const [selectedAccount, setSelectedAccount] = useState('')
     const [installments, setInstallments] = useState('1')
     const [statementMonth, setStatementMonth] = useState(new Date().toISOString().slice(0, 7)) // 'YYYY-MM'
     const [loading, setLoading] = useState(false)
@@ -38,6 +40,7 @@ export default function TransactionModal({ initialOpen = false, defaultPaymentMe
         if (open) {
             transactionService.getCategories().then(setAllCategories).catch(console.error)
             transactionService.getCreditCards().then(setCreditCards).catch(console.error)
+            transactionService.getAccounts().then(setAccounts).catch(console.error)
             
             if (defaultPaymentMethod) setPaymentMethod(defaultPaymentMethod)
             if (defaultCreditCardId) setSelectedCreditCard(defaultCreditCardId)
@@ -69,6 +72,7 @@ export default function TransactionModal({ initialOpen = false, defaultPaymentMe
                 currency,
                 payment_method: paymentMethod,
                 credit_card_id: paymentMethod === 'credit_card' ? selectedCreditCard : null,
+                account_id: selectedAccount || null,
                 installments_count: parseInt(installments),
                 statement_month: paymentMethod === 'credit_card' ? statementMonth : null
             })
@@ -226,6 +230,26 @@ export default function TransactionModal({ initialOpen = false, defaultPaymentMe
                                             />
                                         </div>
                                     </div>
+                                </div>
+                            )}
+
+                            {/* Account Selector (for Income or non-Credit expenses) */}
+                            {(type === 'income' || (type === 'expense' && paymentMethod !== 'credit_card')) && (
+                                <div className="space-y-1.5 p-4 rounded-2xl bg-white/5 border border-white/10 animate-in fade-in slide-in-from-top-2">
+                                    <Label className="text-xs text-slate-400">
+                                        {type === 'income' ? 'Cuenta de destino' : 'Cuenta de origen'}
+                                    </Label>
+                                    <select 
+                                        className="w-full h-10 bg-white/5 border border-white/10 rounded-xl px-3 text-sm focus:border-primary/50 transition-all outline-none"
+                                        value={selectedAccount}
+                                        onChange={e => setSelectedAccount(e.target.value)}
+                                        required={type === 'income'}
+                                    >
+                                        <option value="">{type === 'income' ? 'Seleccionar cuenta...' : 'Seleccionar cuenta (opcional)...'}</option>
+                                        {accounts.map(acc => (
+                                            <option key={acc.id} value={acc.id}>{acc.name} ({acc.currency})</option>
+                                        ))}
+                                    </select>
                                 </div>
                             )}
 
