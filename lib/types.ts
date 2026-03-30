@@ -27,6 +27,16 @@ export interface Category {
     created_at: string
 }
 
+export interface CreditCard {
+    id: string
+    household_id: string
+    name: string
+    bank: string | null
+    closing_day: number | null
+    due_day: number | null
+    created_at: string
+}
+
 export interface Transaction {
     id: string
     amount: number
@@ -37,7 +47,14 @@ export interface Transaction {
     category_id: string
     household_id: string
     user_id: string
+    payment_method: 'cash' | 'debit' | 'credit_card'
+    credit_card_id?: string | null
+    installments_count: number
+    installment_number: number
+    statement_month?: string | null
+    is_consolidated: boolean
     categories?: Category
+    credit_cards?: CreditCard
     users?: { display_name: string }
 }
 

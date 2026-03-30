@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/client'
-import { Transaction, Category, TransactionType } from '@/lib/types'
+import { Transaction, Category, TransactionType, CreditCard } from '@/lib/types'
 
 const supabase = createClient()
 
@@ -51,7 +51,11 @@ export const transactionService = {
         description: string,
         category_name: string,
         date: string,
-        currency?: 'ARS' | 'USD'
+        currency?: 'ARS' | 'USD',
+        payment_method?: 'cash' | 'debit' | 'credit_card',
+        credit_card_id?: string | null,
+        installments_count?: number,
+        statement_month?: string | null
     }) {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) throw new Error('Not authenticated')
@@ -85,20 +89,41 @@ export const transactionService = {
             categoryId = newCat?.id || null
         }
 
-        // 2. Insert transaction
-        const { data, error } = await supabase.from('transactions').insert({
-            household_id: profile.household_id,
-            user_id: user.id,
-            category_id: categoryId,
-            amount: payload.amount,
-            type: payload.type,
-            description: payload.description,
-            date: payload.date,
-            currency: payload.currency || 'ARS'
-        }).select('*, categories(*)').single()
+        // 2. Handle Installments
+        const installments = payload.installments_count || 1
+        const results = []
 
-        if (error) throw error
-        return data as Transaction
+        for (let i = 1; i <= installments; i++) {
+            let currentStatementMonth = payload.statement_month
+
+            if (installments > 1 && payload.statement_month) {
+                // If more than 1 installment, increment statement_month
+                const [year, month] = payload.statement_month.split('-').map(Number)
+                const date = new Date(year, month - 1 + (i - 1), 1)
+                currentStatementMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+            }
+
+            const { data, error } = await supabase.from('transactions').insert({
+                household_id: profile.household_id,
+                user_id: user.id,
+                category_id: categoryId,
+                amount: payload.amount / installments, // Divide total amount by installments
+                type: payload.type,
+                description: installments > 1 ? `${payload.description} (${i}/${installments})` : payload.description,
+                date: payload.date,
+                currency: payload.currency || 'ARS',
+                payment_method: payload.payment_method || 'cash',
+                credit_card_id: payload.credit_card_id,
+                installments_count: installments,
+                installment_number: i,
+                statement_month: currentStatementMonth
+            }).select('*, categories(*)').single()
+
+            if (error) throw error
+            results.push(data)
+        }
+
+        return results[0] as Transaction
     },
 
     async updateTransaction(id: string, payload: {
@@ -167,5 +192,32 @@ export const transactionService = {
 
         if (error) throw error
         return true
+    },
+
+    async deleteCategory(id: string) {
+        const { error } = await supabase
+            .from('categories')
+            .delete()
+            .eq('id', id)
+
+        if (error) throw error
+        return true
+    },
+
+    async getCreditCards() {
+        // First get the user's household_id
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) throw new Error('Not authenticated')
+
+        const { data: profile } = await supabase.from('users').select('household_id').eq('id', user.id).single()
+        if (!profile?.household_id) throw new Error('No household')
+
+        const { data, error } = await supabase
+            .from('credit_cards')
+            .select('*')
+            .eq('household_id', profile.household_id)
+            .order('name', { ascending: true })
+        if (error) throw error
+        return data as CreditCard[]
     }
 }

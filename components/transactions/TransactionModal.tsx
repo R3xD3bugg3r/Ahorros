@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useRouter } from 'next/navigation'
 import { transactionService } from '@/lib/services/transactions'
-import { Category, TransactionType } from '@/lib/types'
+import { Category, TransactionType, CreditCard } from '@/lib/types'
 
 export default function TransactionModal() {
     const [open, setOpen] = useState(false)
@@ -17,6 +17,11 @@ export default function TransactionModal() {
     const [customCategory, setCustomCategory] = useState('')
     const [date, setDate] = useState(new Date().toISOString().split('T')[0])
     const [currency, setCurrency] = useState<'ARS' | 'USD'>('ARS')
+    const [paymentMethod, setPaymentMethod] = useState<'cash' | 'debit' | 'credit_card'>('cash')
+    const [creditCards, setCreditCards] = useState<CreditCard[]>([])
+    const [selectedCreditCard, setSelectedCreditCard] = useState('')
+    const [installments, setInstallments] = useState('1')
+    const [statementMonth, setStatementMonth] = useState(new Date().toISOString().slice(0, 7)) // 'YYYY-MM'
     const [loading, setLoading] = useState(false)
     const [allCategories, setAllCategories] = useState<Category[]>([])
     const router = useRouter()
@@ -24,6 +29,7 @@ export default function TransactionModal() {
     useEffect(() => {
         if (open) {
             transactionService.getCategories().then(setAllCategories).catch(console.error)
+            transactionService.getCreditCards().then(setCreditCards).catch(console.error)
         }
     }, [open])
 
@@ -49,7 +55,11 @@ export default function TransactionModal() {
                 description,
                 category_name: categoryName,
                 date,
-                currency
+                currency,
+                payment_method: paymentMethod,
+                credit_card_id: paymentMethod === 'credit_card' ? selectedCreditCard : null,
+                installments_count: parseInt(installments),
+                statement_month: paymentMethod === 'credit_card' ? statementMonth : null
             })
             
             setOpen(false)
@@ -69,6 +79,8 @@ export default function TransactionModal() {
         setCustomCategory('')
         setDate(new Date().toISOString().split('T')[0])
         setCurrency('ARS')
+        setPaymentMethod('cash')
+        setInstallments('1')
     }
 
     return (
@@ -140,23 +152,87 @@ export default function TransactionModal() {
                                 </div>
                             </div>
 
+                            {/* Payment Method */}
+                            <div className="space-y-1.5">
+                                <Label className="text-xs text-slate-400">Método de Pago</Label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {[
+                                        { v: 'cash', l: 'Efectivo' },
+                                        { v: 'debit', l: 'Débito' },
+                                        { v: 'credit_card', l: 'Tarjeta' }
+                                    ].map(method => (
+                                        <button
+                                            key={method.v}
+                                            type="button"
+                                            onClick={() => setPaymentMethod(method.v as any)}
+                                            className={`py-2.5 rounded-xl text-xs font-bold border transition-all ${paymentMethod === method.v ? 'bg-primary/20 border-primary/50 text-primary' : 'bg-white/5 border-white/5 text-slate-500'}`}
+                                        >
+                                            {method.l}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Credit Card Details */}
+                            {paymentMethod === 'credit_card' && (
+                                <div className="space-y-4 p-4 rounded-2xl bg-white/5 border border-white/10 animate-in fade-in slide-in-from-top-2">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs text-slate-400">Tarjeta</Label>
+                                        <select 
+                                            className="w-full h-10 bg-white/5 border border-white/10 rounded-xl px-3 text-sm"
+                                            value={selectedCreditCard}
+                                            onChange={e => setSelectedCreditCard(e.target.value)}
+                                            required
+                                        >
+                                            <option value="">Seleccionar tarjeta...</option>
+                                            {creditCards.map(card => (
+                                                <option key={card.id} value={card.id}>{card.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs text-slate-400">Cuotas</Label>
+                                            <Input 
+                                                type="number" 
+                                                min="1" 
+                                                max="24" 
+                                                value={installments} 
+                                                onChange={e => setInstallments(e.target.value)}
+                                                className="bg-white/5 border-white/10"
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs text-slate-400">Mes de Pago</Label>
+                                            <Input 
+                                                type="month" 
+                                                value={statementMonth} 
+                                                onChange={e => setStatementMonth(e.target.value)}
+                                                className="bg-white/5 border-white/10"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Date */}
                             <div className="space-y-1.5">
-                                <Label htmlFor="date" className="text-xs text-slate-400">Fecha de impacto</Label>
+                                <Label htmlFor="date" className="text-xs text-slate-400">Fecha de compra/consumo</Label>
                                 <Input id="date" type="date" className="bg-white/5 border-white/10" value={date} onChange={e => setDate(e.target.value)} required />
                             </div>
 
                             {/* Category */}
                             <div className="space-y-1.5">
                                 <Label className="text-xs text-slate-400">Categoría</Label>
-                                <div className="flex flex-wrap gap-1.5">
+                                <div className="flex flex-wrap gap-1.5 overflow-x-auto pb-1 no-scrollbar">
                                     {filteredCategories.map(cat => (
                                         <button key={cat.id} type="button" onClick={() => handleCategorySelect(cat.name)}
-                                            className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border ${category === cat.name ? 'bg-primary/20 border-primary/50 text-primary' : 'bg-white/5 border-white/5 text-slate-400 hover:border-white/20'}`}
+                                            className={`whitespace-nowrap px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border ${category === cat.name ? 'bg-primary/20 border-primary/50 text-primary' : 'bg-white/5 border-white/5 text-slate-400 hover:border-white/20'}`}
                                         >{cat.name}</button>
                                     ))}
                                     <button type="button" onClick={() => setCategory('__custom__')}
-                                        className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border ${category === '__custom__' ? 'bg-amber-500/20 border-amber-500/50 text-amber-400' : 'bg-white/5 border-white/5 text-slate-400 hover:border-white/20'}`}
+                                        className={`whitespace-nowrap px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border ${category === '__custom__' ? 'bg-amber-500/20 border-amber-500/50 text-amber-400' : 'bg-white/5 border-white/5 text-slate-400 hover:border-white/20'}`}
                                     >+ Nueva</button>
                                 </div>
                                 {category === '__custom__' && (
@@ -167,10 +243,17 @@ export default function TransactionModal() {
                             {/* Description */}
                             <div className="space-y-1.5">
                                 <Label htmlFor="desc" className="text-xs text-slate-400">Descripción <span className="opacity-50">(opcional)</span></Label>
-                                <Input id="desc" placeholder="Ej: Pago tarjeta, Café, etc." className="bg-white/5 border-white/10" value={description} onChange={e => setDescription(e.target.value)} />
+                                <div className="relative">
+                                    <Input id="desc" placeholder="Ej: Pago tarjeta, Café, etc." className="bg-white/5 border-white/10" value={description} onChange={e => setDescription(e.target.value)} />
+                                    {parseInt(installments) > 1 && (
+                                        <div className="absolute right-3 top-2.5 px-2 py-0.5 rounded-md bg-primary/20 text-primary text-[10px] font-bold">
+                                            {installments} Cuotas
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
-                            <Button type="submit" className="w-full h-14 text-base font-black shadow-lg shadow-primary/20 mt-4 rounded-2xl" disabled={loading || !amount || !category}>
+                            <Button type="submit" className="w-full h-14 text-base font-black shadow-lg shadow-primary/20 mt-4 rounded-2xl" disabled={loading || !amount || !category || (paymentMethod === 'credit_card' && !selectedCreditCard)}>
                                 {loading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
                                 Guardar {type === 'expense' ? 'Gasto' : type === 'income' ? 'Ingreso' : type === 'investment' ? 'Inversión' : 'Ahorro'}
                             </Button>

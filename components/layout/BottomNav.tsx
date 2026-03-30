@@ -1,12 +1,12 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, List, Bug, User } from 'lucide-react'
+import { LayoutDashboard, List, Bug, User, CreditCard } from 'lucide-react'
 
 const links = [
     { href: '/dashboard', label: 'Inicio', icon: LayoutDashboard },
     { href: '/dashboard/historial', label: 'Historial', icon: List },
-    { href: '/dashboard/hormiga', label: 'Hormiga', icon: Bug },
+    { href: '/dashboard/tarjetas', label: 'Tarjetas', icon: CreditCard },
     { href: '/dashboard/perfil', label: 'Perfil', icon: User },
 ]
 

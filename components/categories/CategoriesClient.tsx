@@ -44,6 +44,21 @@ export default function CategoriesClient({ categories }: { categories: Category[
         }
     }
 
+    async function handleDelete(id: string) {
+        if (!confirm('¿Estás seguro de que querés borrar esta categoría? Si tiene transacciones asociadas, esto podría fallar o borrarlas también.')) return
+        
+        setLoading(true)
+        try {
+            await transactionService.deleteCategory(id)
+            router.refresh()
+        } catch (err) {
+            alert('Error al borrar la categoría. Podría tener transacciones asociadas.')
+            console.error(err)
+        } finally {
+            setLoading(false)
+        }
+    }
+
     function startEdit(c: Category) {
         setEditingId(c.id)
         setEditName(c.name)
@@ -134,9 +149,14 @@ export default function CategoriesClient({ categories }: { categories: Category[
                                             </p>
                                         </div>
                                     </div>
-                                    <button onClick={() => startEdit(c)} className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 hover:text-primary transition-colors">
-                                        <Edit2 size={16} />
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={() => handleDelete(c.id)} disabled={loading} className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 hover:text-red-400 transition-colors disabled:opacity-50">
+                                            <Trash2 size={16} />
+                                        </button>
+                                        <button onClick={() => startEdit(c)} className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 hover:text-primary transition-colors">
+                                            <Edit2 size={16} />
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                         </div>

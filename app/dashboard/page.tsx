@@ -13,7 +13,12 @@ export default async function DashboardPage() {
 
     const { data: transactions } = await supabase
         .from('transactions')
-        .select('*, categories(name, icon, type, default_description), users(display_name)')
+        .select(`
+            *,
+            categories(name, icon, type, default_description),
+            credit_cards(name),
+            users(display_name)
+        `)
         .order('date', { ascending: false })
         .limit(500)
 

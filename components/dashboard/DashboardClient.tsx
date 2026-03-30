@@ -75,11 +75,49 @@ export default function DashboardClient({ user, profile, initialTransactions }: 
     // Filter transactions by current month AND viewMode
     const monthTransactions = useMemo(() => {
         return transactions.filter(t => {
-            const isMonth = (t.date || t.created_at).startsWith(currentMonth)
+            // For credit card expenses, we use statement_month to determine the impact month
+            // For others, we use the transaction date
+            const impactMonth = (t.payment_method === 'credit_card' && t.statement_month) 
+                ? t.statement_month 
+                : (t.date || t.created_at).substring(0, 7)
+            
+            const isMonth = impactMonth === currentMonth
             const isUser = viewMode === 'all' || t.user_id === user.id
             return isMonth && isUser
         })
     }, [transactions, currentMonth, viewMode, user.id])
+
+    // Option A: Visual Grouping for transactions list
+    const groupedTransactions = useMemo(() => {
+        const result: any[] = []
+        const cardGroups: Record<string, any> = {}
+
+        monthTransactions.forEach(t => {
+            if (t.payment_method === 'credit_card' && t.credit_card_id) {
+                const key = `${t.credit_card_id}_${t.statement_month}`
+                if (!cardGroups[key]) {
+                    cardGroups[key] = {
+                        id: `group_${key}`,
+                        type: 'expense',
+                        payment_method: 'credit_card',
+                        amount: 0,
+                        description: `Pago ${t.credit_cards?.name || 'Tarjeta'}`,
+                        date: t.date, // Use one of the dates
+                        currency: t.currency,
+                        is_group: true,
+                        items: []
+                    }
+                    result.push(cardGroups[key])
+                }
+                cardGroups[key].amount += t.amount
+                cardGroups[key].items.push(t)
+            } else {
+                result.push(t)
+            }
+        })
+
+        return result.sort((a, b) => new Date(b.date || b.created_at).getTime() - new Date(a.date || a.created_at).getTime())
+    }, [monthTransactions])
 
     // Calculations
     const stats = useMemo(() => {
@@ -166,7 +204,7 @@ export default function DashboardClient({ user, profile, initialTransactions }: 
             }
         })
         return last6Months.map(k => data[k])
-    }, [transactions, viewMode, user.id])
+    }, [transactions, viewMode, user.id, months])
 
     // Yearly Stats (Filtered by viewMode)
     const yearlyStats = useMemo(() => {
@@ -458,13 +496,14 @@ export default function DashboardClient({ user, profile, initialTransactions }: 
                 </div>
 
                 {(() => {
-                    const filteredTxs = monthTransactions.filter(t => {
+                    const txsToShow = groupedTransactions.filter(t => {
+                        if (t.is_group) return true // Groups always shown if they survived the month filter
                         if (filterCategory && (t.categories?.name || 'Sin categoría') !== filterCategory) return false
                         if (filterUser && getRealName(t.users?.display_name || 'Alguien') !== filterUser) return false
                         return true
                     })
 
-                    if (filteredTxs.length === 0) {
+                    if (txsToShow.length === 0) {
                         return (
                             <div className="text-center py-6">
                                 <Wallet size={32} className="mx-auto text-slate-600 mb-2" />
@@ -475,7 +514,28 @@ export default function DashboardClient({ user, profile, initialTransactions }: 
 
                     return (
                         <div className="space-y-2">
-                            {filteredTxs.slice(0, 10).map(t => {
+                            {txsToShow.slice(0, 20).map(t => {
+                                if (t.is_group) {
+                                    return (
+                                        <div key={t.id} className="flex items-center gap-3 py-3 border border-primary/20 bg-primary/5 rounded-xl px-3 transition-colors">
+                                            <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg bg-primary/20 text-primary flex-shrink-0">
+                                                💳
+                                            </div>
+                                            <div className="flex-1 min-w-0 pr-2">
+                                                <p className="text-sm font-bold truncate text-primary uppercase tracking-tight">
+                                                    {t.description}
+                                                </p>
+                                                <p className="text-[10px] text-slate-500 font-medium">
+                                                    Consolidado de {t.items.length} consumos
+                                                </p>
+                                            </div>
+                                            <p className="text-sm font-black text-primary">
+                                                {t.currency === 'USD' ? USD_SHORT(t.amount) : ARS_SHORT(t.amount)}
+                                            </p>
+                                        </div>
+                                    )
+                                }
+
                                 const personName = getRealName(t.users?.display_name || 'Alguien')
                                 const dateStr = new Date(t.date || t.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })
                                 const typeIcon = t.type === 'income' ? '↑' : t.type === 'expense' ? '↓' : t.type === 'investment' ? '🏦' : '🐷'
